@@ -7,8 +7,47 @@
 #include <boost/interprocess/sync/scoped_lock.hpp>
 
 
-using boost::asio::ip::tcp;
+using namespace boost::asio;
+using namespace boost::asio::ip;
 
+
+namespace ns
+{
+    struct ServerConfig
+    {
+        std::string host = "127.0.0.1";
+        int port = 5000;
+        int timeout = 60;
+
+        ServerConfig() = default;
+        ServerConfig(std::string host_, int port_, int timeout_)
+            : host(std::move(host_)), port(port_), timeout(timeout_)
+        {}
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ServerConfig, host, port, timeout)
+}
+
+
+
+#if 0
+int main()
+{
+    // Load settings from a JSON file
+    std::ifstream settings_file("path/to/your/settings.json");
+    nlohmann::json config;
+
+    settings_file >> config;
+
+    ns::ServerConfig bc_config = config["BCServer"].get<ns::ServerConfig>();
+    ns::ServerConfig rts_config = config["RTS"].get<ns::ServerConfig>();
+
+    settings_file.close();
+
+
+    return 0;
+}
+#endif
 
 int main() {
 
@@ -36,20 +75,21 @@ int main() {
 
 
     // Load settings from a JSON file
-    std::ifstream json_file("settings.json");
+    std::ifstream settings_file("settings.json");
     nlohmann::json config;
-    json_file >> config;
+    settings_file >> config;
 
-    std::string bc_host = config["BCServer"]["host"];
-    int bc_port = config["BCServer"]["port"];
-    int bc_timeout = config["BCServer"]["timeout"];
+    ns::ServerConfig bc_config = config["BCServer"].get<ns::ServerConfig>();
+    ns::ServerConfig rts_config = config["RTS"].get<ns::ServerConfig>();
+
+    settings_file.close();
 
     try {
         boost::asio::io_context io_context;
 
-        tcp::acceptor acceptor(io_context, tcp::endpoint(tcp::v4(), bc_port));
+        tcp::acceptor acceptor(io_context, tcp::endpoint(tcp::v4(), bc_config.port));
 
-        std::cout << "Server is running on port " << bc_port << std::endl;
+        std::cout << "Server is running on port " << bc_config.port << std::endl;
 
         for (;;) {
             tcp::socket socket(io_context);
