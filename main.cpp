@@ -1,25 +1,53 @@
 #include <iostream>
-#include <boost/asio.hpp>
+#include <nlohmann/json.hpp>
 
-using boost::asio::ip::tcp;
+using json = nlohmann::json;
+using namespace nlohmann::literals;
 
-int main() {
-    try {
-        boost::asio::io_service io_service;
+namespace ns
+{
+struct person
+{
+    std::string name;
+    std::string address;
+    int age;
+};
 
-        tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), 8080));
+void to_json(nlohmann::json& nlohmann_json_j, const person& nlohmann_json_t)
+{
+    nlohmann_json_j["name"] = nlohmann_json_t.name;
+    nlohmann_json_j["address"] = nlohmann_json_t.address;
+    nlohmann_json_j["age"] = nlohmann_json_t.age;
+}
 
-        for (;;) {
-            tcp::socket socket(io_service);
-            acceptor.accept(socket);
+void from_json(const nlohmann::json& nlohmann_json_j, person& nlohmann_json_t)
+{
+    nlohmann_json_t.name = nlohmann_json_j.at("name");
+    nlohmann_json_t.address = nlohmann_json_j.at("address");
+    nlohmann_json_t.age = nlohmann_json_j.at("age");
+}
+} // namespace ns
 
-            std::string data = "Hello from ASIO server!\n";
-            boost::system::error_code ignored_error;
-            boost::asio::write(socket, boost::asio::buffer(data), ignored_error);
-        }
-    } catch (std::exception& e) {
-        std::cerr << e.what() << std::endl;
+int main()
+{
+    ns::person p = {"Ned Flanders", "744 Evergreen Terrace", 60};
+
+    // serialization: person -> json
+    json j = p;
+    std::cout << "serialization: " << j << std::endl;
+
+    // deserialization: json -> person
+    json j2 = R"({"address": "742 Evergreen Terrace", "age": 40, "name": "Homer Simpson"})"_json;
+    auto p2 = j2.template get<ns::person>();
+
+    // incomplete deserialization:
+    json j3 = R"({"address": "742 Evergreen Terrace", "name": "Maggie Simpson"})"_json;
+    try
+    {
+        auto p3 = j3.template get<ns::person>();
     }
-
-    return 0;
+    catch (const json::exception& e)
+    {
+        std::cout << "deserialization failed: " << e.what() << std::endl;
+    }
 }
